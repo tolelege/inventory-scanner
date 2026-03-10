@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Inventory Scanner</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 10px;
+      background: #f3f4f6;
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: 14px;
+      padding: 14px;
+      box-shadow: 0 2px 12px rgba(0,0,0,.08);
+    }
+    .title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    .camera-panel {
+      margin-bottom: 14px;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #111827;
+      position: relative;
+    }
+    .video-wrap {
+      position: relative;
+      width: 100%;
+      background: #000;
+      aspect-ratio: 16 / 9;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .scan-frame {
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      top: 32%;
+      bottom: 32%;
+      border: 3px solid rgba(34,197,94,.95);
+      border-radius: 16px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.28);
+    }
+    .scan-line {
+      position: absolute;
+      left: 12%;
+      right: 12%;
+      top: 50%;
+      height: 2px;
+      background: #22c55e;
+      box-shadow: 0 0 10px rgba(34,197,94,.8);
+    }
+    .camera-status {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      background: rgba(17,24,39,.7);
+      color: #fff;
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 13px;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 10px;
+      background: #fff;
+      border-top: 1px solid #e5e7eb;
+    }
+    button {
+      padding: 12px 16px;
+      font-size: 15px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      background: #111827;
+      color: #fff;
+    }
+    .secondary { background: #4b5563; }
+    .danger { background: #b91c1c; }
+
+    .manual-box {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 14px;
+      font-size: 20px;
+      border: 2px solid #d1d5db;
+      border-radius: 10px;
+      box-sizing: border-box;
+      background: #fff;
+    }
+    .top-grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .panel {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 10px 12px;
+      align-items: center;
+    }
+    .label {
+      font-weight: 700;
+      color: #374151;
+    }
+    .value {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      min-height: 24px;
+      padding: 10px 12px;
+      font-size: 18px;
+      word-break: break-word;
+    }
+    .result {
+      margin-top: 14px;
+      padding: 16px;
+      font-size: 24px;
+      font-weight: 700;
+      text-align: center;
+      border-radius: 12px;
+      background: #eef2ff;
+      border: 1px solid #c7d2fe;
+    }
+    .ok { background: #ecfdf5; border-color: #a7f3d0; color: #065f46; }
+    .warn { background: #fff7ed; border-color: #fdba74; color: #9a3412; }
+    .err { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+    .info { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; }
+
+    .list-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    .table-wrap {
+      max-height: 620px;
+      overflow: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fff;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #f3f4f6;
+      z-index: 1;
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid #d1d5db;
+      white-space: nowrap;
+    }
+    tbody td {
+      padding: 10px;
+      border-bottom: 1px solid #eceff3;
+      vertical-align: top;
+    }
+    tbody tr.scanned-row { background: #ecfdf5; }
+    tbody tr.highlight-row {
+      outline: 2px solid #2563eb;
+      background: #dbeafe !important;
+    }
+    .status-pill {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #e5e7eb;
+      color: #374151;
+    }
+    .status-pill.done {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .empty {
+      padding: 24px;
+      text-align: center;
+      color: #6b7280;
+    }
+
+    @media (max-width: 900px) {
+      .top-grid { grid-template-columns: 1fr; }
+      .manual-box { grid-template-columns: 1fr; }
+      .table-wrap { max-height: 420px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="title">Inventory Scanner</div>
+
+    <div class="camera-panel">
+      <div class="video-wrap">
+        <video id="video" playsinline autoplay muted></video>
+        <div class="overlay">
+          <div class="scan-frame"></div>
+          <div class="scan-line"></div>
+        </div>
+        <div class="camera-status" id="cameraStatus">Camera idle</div>
+      </div>
+
+      <div class="controls">
+        <button id="startCameraBtn" type="button">Start Camera</button>
+        <button id="stopCameraBtn" type="button" class="secondary">Stop Camera</button>
+        <button id="resetBtn" type="button" class="secondary">RESET BIN</button>
+        <button id="clearCurrentBtn" type="button" class="secondary">Clear Current Bin</button>
+      </div>
+    </div>
+
+    <div class="manual-box">
+      <input id="manualInput" type="text" placeholder="Manual input if needed" />
+      <button id="manualSubmitBtn" type="button">Submit</button>
+    </div>
+
+    <div class="top-grid">
+      <div class="panel">
+        <div class="stats">
+          <div class="label">Current Bin</div>
+          <div class="value" id="currentBin"></div>
+
+          <div class="label">Total</div>
+          <div class="value" id="total">0</div>
+
+          <div class="label">Scanned</div>
+          <div class="value" id="scanned">0</div>
+
+          <div class="label">Remaining</div>
+          <div class="value" id="remaining">0</div>
+
+          <div class="label">Last Scan</div>
+          <div class="value" id="lastScan"></div>
+        </div>
+
+        <div class="result info" id="result">READY</div>
+      </div>
+
+      <div class="panel">
+        <div class="list-title">Current Bin Items</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:70px;">Row</th>
+                <th style="width:180px;">LPN</th>
+                <th style="width:180px;">Part</th>
+                <th style="width:180px;">Serial</th>
+                <th style="width:180px;">Lot</th>
+                <th style="width:110px;">Status</th>
+              </tr>
+            </thead>
+            <tbody id="itemTableBody">
+              <tr><td colspan="6" class="empty">No Bin Loaded</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 여기에 Apps Script 웹앱 URL 넣기
+    const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbz9NsYm80HpWqQmM-wElbvA-n__JbpaeVTbxbW5BiJi2HrLKu82Lqct3uFDmxZwby5rBg/exec';
+
+    // Code.gs의 CONFIG.appKey와 같아야 함
+    const APP_KEY = 'Accuray_SCANNER_2026';
+
+    let sessionState = { currentBin: '' };
+    let mediaStream = null;
+    let detector = null;
+    let scanningActive = false;
+    let isProcessing = false;
+    let lastDetectedValue = '';
+    let lastDetectedAt = 0;
+
+    const els = {
+      video: document.getElementById('video'),
+      cameraStatus: document.getElementById('cameraStatus'),
+      startCameraBtn: document.getElementById('startCameraBtn'),
+      stopCameraBtn: document.getElementById('stopCameraBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      clearCurrentBtn: document.getElementById('clearCurrentBtn'),
+      manualInput: document.getElementById('manualInput'),
+      manualSubmitBtn: document.getElementById('manualSubmitBtn'),
+      currentBin: document.getElementById('currentBin'),
+      total: document.getElementById('total'),
+      scanned: document.getElementById('scanned'),
+      remaining: document.getElementById('remaining'),
+      lastScan: document.getElementById('lastScan'),
+      result: document.getElementById('result'),
+      itemTableBody: document.getElementById('itemTableBody')
+    };
+
+    function init() {
+      jsonpRequest({
+        action: 'init',
+        key: APP_KEY
+      }).then(render).catch(handleError);
+
+      els.startCameraBtn.addEventListener('click', startCamera);
+      els.stopCameraBtn.addEventListener('click', stopCamera);
+
+      els.resetBtn.addEventListener('click', function() {
+        submitValue('RESET');
+      });
+
+      els.clearCurrentBtn.addEventListener('click', function() {
+        sessionState.currentBin = '';
+        render({
+          currentBin: '',
+          total: 0,
+          scanned: 0,
+          remaining: 0,
+          lastScan: '',
+          result: 'CURRENT BIN RESET',
+          items: [],
+          highlightLpn: ''
+        });
+      });
+
+      els.manualSubmitBtn.addEventListener('click', submitManualInput);
+      els.manualInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          submitManualInput();
+        }
+      });
+
+      setupDetector();
+    }
+
+    function setupDetector() {
+      if ('BarcodeDetector' in window) {
+        try {
+          detector = new BarcodeDetector({
+            formats: [
+              'code_128',
+              'code_39',
+              'codabar',
+              'ean_13',
+              'ean_8',
+              'upc_a',
+              'upc_e',
+              'itf',
+              'qr_code'
+            ]
+          });
+          setCameraStatus('Barcode detector ready');
+        } catch (e) {
+          detector = null;
+          setCameraStatus('Barcode detector not available');
+        }
+      } else {
+        setCameraStatus('This browser does not support live barcode detection');
+      }
+    }
+
+    async function startCamera() {
+      if (!window.isSecureContext) {
+        setCameraStatus('HTTPS page required');
+        return;
+      }
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setCameraStatus('Camera API not supported');
+        return;
+      }
+
+      if (!detector) {
+        setCameraStatus('Live barcode scan not supported in this browser');
+        return;
+      }
+
+      stopCamera();
+
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        });
+
+        els.video.srcObject = mediaStream;
+        scanningActive = true;
+        setCameraStatus('Camera started');
+        requestAnimationFrame(scanLoop);
+      } catch (err) {
+        setCameraStatus('Camera denied or unavailable');
+      }
+    }
+
+    function stopCamera() {
+      scanningActive = false;
+
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+      }
+
+      if (els.video.srcObject) {
+        els.video.srcObject = null;
+      }
+
+      setCameraStatus('Camera stopped');
+    }
+
+    async function scanLoop() {
+      if (!scanningActive || !detector || isProcessing) {
+        if (scanningActive) requestAnimationFrame(scanLoop);
+        return;
+      }
+
+      try {
+        if (els.video.readyState >= 2) {
+          const barcodes = await detector.detect(els.video);
+
+          if (barcodes && barcodes.length > 0) {
+            const rawValue = normalizeValue(barcodes[0].rawValue || '');
+            if (rawValue) {
+              const now = Date.now();
+              const duplicateRead =
+                rawValue === lastDetectedValue &&
+                (now - lastDetectedAt < 1500);
+
+              if (!duplicateRead) {
+                lastDetectedValue = rawValue;
+                lastDetectedAt = now;
+                submitValue(rawValue);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        setCameraStatus('Scanning...');
+      }
+
+      if (scanningActive) {
+        requestAnimationFrame(scanLoop);
+      }
+    }
+
+    function submitManualInput() {
+      const value = normalizeValue(els.manualInput.value || '');
+      if (!value) return;
+      els.manualInput.value = '';
+      submitValue(value);
+    }
+
+    function submitValue(value) {
+      if (!value || isProcessing) return;
+
+      isProcessing = true;
+      setCameraStatus('Processing: ' + value);
+
+      jsonpRequest({
+        action: 'scan',
+        key: APP_KEY,
+        scanValue: value,
+        currentBin: sessionState.currentBin || ''
+      }).then(function(res) {
+        isProcessing = false;
+        render(res);
+        notifyResult(res.result || '');
+        setCameraStatus(scanningActive ? 'Scanning...' : 'Ready');
+      }).catch(function(err) {
+        isProcessing = false;
+        handleError(err);
+        setCameraStatus(scanningActive ? 'Scanning...' : 'Ready');
+      });
+    }
+
+    function jsonpRequest(params) {
+      return new Promise(function(resolve, reject) {
+        const callbackName = 'jsonp_cb_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
+        const url = new URL(BACKEND_URL);
+        url.searchParams.set('callback', callbackName);
+
+        Object.keys(params).forEach(function(key) {
+          url.searchParams.set(key, params[key]);
+        });
+
+        const script = document.createElement('script');
+        let finished = false;
+
+        function cleanup() {
+          if (script.parentNode) script.parentNode.removeChild(script);
+          try { delete window[callbackName]; } catch (e) { window[callbackName] = undefined; }
+        }
+
+        window[callbackName] = function(data) {
+          if (finished) return;
+          finished = true;
+          cleanup();
+          resolve(data);
+        };
+
+        script.onerror = function() {
+          if (finished) return;
+          finished = true;
+          cleanup();
+          reject(new Error('Backend request failed'));
+        };
+
+        setTimeout(function() {
+          if (finished) return;
+          finished = true;
+          cleanup();
+          reject(new Error('Backend request timeout'));
+        }, 15000);
+
+        script.src = url.toString();
+        document.body.appendChild(script);
+      });
+    }
+
+    function render(data) {
+      sessionState.currentBin = data.currentBin || '';
+
+      els.currentBin.textContent = data.currentBin || '';
+      els.total.textContent = data.total ?? 0;
+      els.scanned.textContent = data.scanned ?? 0;
+      els.remaining.textContent = data.remaining ?? 0;
+      els.lastScan.textContent = data.lastScan || '';
+      els.result.textContent = data.result || '';
+      els.result.className = 'result ' + getResultClass(data.result || '');
+
+      renderItems(data.items || [], data.highlightLpn || '');
+    }
+
+    function renderItems(items, highlightLpn) {
+      if (!items.length) {
+        els.itemTableBody.innerHTML = '<tr><td colspan="6" class="empty">No Bin Loaded</td></tr>';
+        return;
+      }
+
+      els.itemTableBody.innerHTML = items.map(function(item) {
+        const isScanned = item.status === 'Scanned';
+        const isHighlight =
+          highlightLpn &&
+          String(item.lpn || '').toUpperCase() === String(highlightLpn || '').toUpperCase();
+
+        let rowClass = '';
+        if (isScanned) rowClass += ' scanned-row';
+        if (isHighlight) rowClass += ' highlight-row';
+
+        return `
+          <tr class="${rowClass.trim()}">
+            <td>${escapeHtml(item.row ?? '')}</td>
+            <td>${escapeHtml(item.lpn || '')}</td>
+            <td>${escapeHtml(item.part || '')}</td>
+            <td>${escapeHtml(item.serial || '')}</td>
+            <td>${escapeHtml(item.lot || '')}</td>
+            <td>${isScanned
+              ? '<span class="status-pill done">Scanned</span>'
+              : '<span class="status-pill">Pending</span>'}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      if (highlightLpn) {
+        const target = els.itemTableBody.querySelector('.highlight-row');
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
+
+    function getResultClass(text) {
+      const t = String(text).toUpperCase();
+      if (t.includes('MATCH') || t.includes('COMPLETE')) return 'ok';
+      if (t.includes('DUPLICATE') || t.includes('WRONG BIN') || t.includes('ALREADY')) return 'warn';
+      if (t.includes('NOT FOUND') || t.includes('ERROR') || t.includes('INVALID')) return 'err';
+      return 'info';
+    }
+
+    function notifyResult(resultText) {
+      const t = String(resultText).toUpperCase();
+
+      if (navigator.vibrate) {
+        if (t.includes('MATCH')) {
+          navigator.vibrate(120);
+        } else if (t.includes('DUPLICATE') || t.includes('WRONG BIN') || t.includes('NOT FOUND')) {
+          navigator.vibrate([80, 60, 80]);
+        }
+      }
+    }
+
+    function setCameraStatus(text) {
+      els.cameraStatus.textContent = text;
+    }
+
+    function handleError(err) {
+      const msg = err && err.message ? err.message : 'Unknown error';
+      render({
+        currentBin: sessionState.currentBin || '',
+        total: Number(els.total.textContent || 0),
+        scanned: Number(els.scanned.textContent || 0),
+        remaining: Number(els.remaining.textContent || 0),
+        lastScan: '',
+        result: 'ERROR: ' + msg,
+        items: [],
+        highlightLpn: ''
+      });
+    }
+
+    function normalizeValue(value) {
+      return String(value || '').trim().toUpperCase();
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    window.addEventListener('beforeunload', stopCamera);
+    window.onload = init;
+  </script>
+</body>
+</html>
