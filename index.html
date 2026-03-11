@@ -5,6 +5,10 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Inventory Scanner</title>
   <style>
+    html, body {
+      overflow-anchor: none;
+    }
+
     body {
       font-family: Arial, sans-serif;
       margin: 0;
@@ -295,10 +299,7 @@
   </div>
 
   <script>
-    // 여기에 Apps Script 웹앱 URL 넣기
     const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbz9NsYm80HpWqQmM-wElbvA-n__JbpaeVTbxbW5BiJi2HrLKu82Lqct3uFDmxZwby5rBg/exec';
-
-    // Code.gs의 CONFIG.appKey와 같아야 함
     const APP_KEY = 'Accuray_SCANNER_2026';
 
     let sessionState = { currentBin: '' };
@@ -553,6 +554,9 @@
     }
 
     function render(data) {
+      const scrollX = window.scrollX;
+      const scrollY = window.scrollY;
+
       sessionState.currentBin = data.currentBin || '';
 
       els.currentBin.textContent = data.currentBin || '';
@@ -564,6 +568,10 @@
       els.result.className = 'result ' + getResultClass(data.result || '');
 
       renderItems(data.items || [], data.highlightLpn || '');
+
+      requestAnimationFrame(function() {
+        window.scrollTo(scrollX, scrollY);
+      });
     }
 
     function renderItems(items, highlightLpn) {
@@ -596,8 +604,6 @@
           </tr>
         `;
       }).join('');
-        }
-      }
     }
 
     function getResultClass(text) {
